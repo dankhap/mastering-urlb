@@ -9,7 +9,8 @@ from dm_control.suite.wrappers import action_scale, pixels
 from dm_env import StepType, specs
 
 import custom_dmc_tasks as cdmc
-import gym
+import gymnasium as gym
+# import gym
 import pickle
 
 class ExtendedTimeStep(NamedTuple):
@@ -269,18 +270,18 @@ class DreamerObsWrapper:
   def __init__(self, env):
     self._env = env 
     self._ignored_keys = []
+    self._spaces = {
+        'observation': self._env.observation_spec(), 
+        # 'reward': gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
+        # 'reward': gym.spaces.Box(-np.inf, np.inf),
+        'is_first': gym.spaces.Box(0, 1, (), dtype=bool),
+        'is_last': gym.spaces.Box(0, 1, (), dtype=bool),
+        'is_terminal': gym.spaces.Box(0, 1, (), dtype=bool),
+    }
 
   @property
   def obs_space(self):
-    spaces = {
-        'observation': self._env.observation_spec(), 
-        'reward': gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
-        'is_first': gym.spaces.Box(0, 1, (), dtype=np.bool),
-        'is_last': gym.spaces.Box(0, 1, (), dtype=np.bool),
-        'is_terminal': gym.spaces.Box(0, 1, (), dtype=np.bool),
-    }
-    return spaces
-
+      return self._spaces
   @property
   def act_space(self):
     spec = self._env.action_spec()
