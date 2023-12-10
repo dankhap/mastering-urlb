@@ -8,6 +8,6 @@ conda activate urlb2
 if [ $1 = "fine" ]; then
 	python finetune.py ${@:2}
 else 
-	python pretrain_dreamer.py ${@:2}
+	python dreamer_pretrain.py ${@:2}
 fi
 
