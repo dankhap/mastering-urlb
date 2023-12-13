@@ -20,6 +20,11 @@ def make(domain, task,
                            task_kwargs=task_kwargs,
                            environment_kwargs=environment_kwargs,
                            visualize_reward=visualize_reward)
+    elif domain == 'hopper':
+        return hopper.make(task,
+                           task_kwargs=task_kwargs,
+                           environment_kwargs=environment_kwargs,
+                           visualize_reward=visualize_reward)
     elif domain == 'quadruped':
         return quadruped.make(task,
                            task_kwargs=task_kwargs,
@@ -31,5 +36,5 @@ def make(domain, task,
     assert None
     
     
-def make_jaco(task, obs_type, seed, img_size,):
-    return jaco.make(task, obs_type, seed, img_size,)
+def make_jaco(task, obs_type, seed):
+    return jaco.make(task, obs_type, seed)

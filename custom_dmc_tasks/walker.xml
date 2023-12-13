@@ -1,4 +1,9 @@
 <mujoco model="planar walker">
+  <include file="/private/home/denisy/.conda/envs/pyt/lib/python3.7/site-packages/dm_control/common/skybox.xml"/>
+  <include file="/private/home/denisy/.conda/envs/pyt/lib/python3.7/site-packages/dm_control/common/visual.xml"/>
+  <include file="/private/home/denisy/.conda/envs/pyt/lib/python3.7/site-packages/dm_control/common/materials.xml"/>
+
+
   <option timestep="0.0025"/>
 
   <statistic extent="2" center="0 0 1"/>
