@@ -6,7 +6,7 @@ eval "$(conda shell.bash hook)"
 conda activate urlb2
 
 if [ $1 = "fine" ]; then
-	python finetune.py ${@:2}
+	python dreamer_finetune.py ${@:2}
 else 
 	python dreamer_pretrain.py ${@:2}
 fi
