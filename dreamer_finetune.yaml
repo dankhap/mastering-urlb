@@ -10,7 +10,7 @@ reward_free: false
 task: walker_stand
 # train settings
 num_train_frames: 100010
-num_seed_frames: 4000
+# num_seed_frames: 4000
 # eval
 eval_every_frames: 10000
 num_eval_episodes: 10
@@ -44,6 +44,14 @@ mpc_opt: { iterations : 12, num_samples : 512, num_elites : 64, mixture_coef : 0
 # Pretrained network reuse
 init_critic: false
 init_actor: true
+
+# Params to test faster FT
+num_seed_frames: 4000
+pretrain_updates: 0 # how many consecutive updates we do for the world model and the actor on first update run (after seed buffer)
+reinit_actor: false # do we re-initialize the actor after collecting the seed buffer
+preload_buffer: "" # path for preloaded buffer of possibly expert trajectories
+wm_train_ratio: 1.0 # ratio between env steps and wm updates
+policy_train_ratio: 1.0 # ratio between env steps and wm updates
 
 # Fine-tuning ablation
 save_ft_model: true

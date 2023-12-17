@@ -190,6 +190,7 @@ class Workspace:
         meta = self.agent.init_meta()
         self.replay_storage.add(data, meta) 
         metrics = None
+        started_train = False
         while train_until_step(self.global_step):
             if bool(dreamer_obs['is_last']):
                 self._global_episode += 1
@@ -255,7 +256,12 @@ class Workspace:
             # try to update the agent
             if not seed_until_step(self.global_step):
                 if should_train_step(self.global_step):
-                    metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
+                    updates_num = 1
+                    if started_train == False and self.cfg.pretrain_updates > 0:
+                        started_train = True
+                        updates_num = self.cfg.pretrain_updates
+                    for _ in range(updates_num):
+                        metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
                 if self.global_step > 0 and should_log_recon(self.global_step):
