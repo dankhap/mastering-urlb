@@ -87,6 +87,11 @@ class DreamerAgent(Module):
   def update_meta(self, meta, global_step, time_step, finetune=False):
     return meta
 
+  def reinit_actor(self):
+    init_actor = self.cfg.get('init_actor', True) 
+    if init_actor:
+        utils.hard_update_params(self._task_behavior.actor_init, self._task_behavior.actor)
+
   def init_from(self, other):
       init_critic = self.cfg.get('init_critic', False)
       init_actor = self.cfg.get('init_actor', True) 
@@ -381,6 +386,7 @@ class ActorCritic(Module):
     else:
       inp_size += config.rssm.stoch
     self.actor = common.MLP(inp_size, act_spec.shape[0], **self.cfg.actor)
+    self.actor_init = common.MLP(inp_size, act_spec.shape[0], **self.cfg.actor)
     self.critic = common.MLP(inp_size, (1,), **self.cfg.critic)
     if self.cfg.slow_target:
       self._target_critic = common.MLP(inp_size, (1,), **self.cfg.critic)
