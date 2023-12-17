@@ -262,6 +262,8 @@ class Workspace:
                         updates_num = self.cfg.pretrain_updates
                     for _ in range(updates_num):
                         metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
+                    if started_train == True and self.cfg.pretrain_updates > 0:
+                        self.agent.reinit_actor()
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
                 if self.global_step > 0 and should_log_recon(self.global_step):
