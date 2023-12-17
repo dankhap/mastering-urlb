@@ -36,5 +36,5 @@ def make(domain, task,
     assert None
     
     
-def make_jaco(task, obs_type, seed):
-    return jaco.make(task, obs_type, seed)
+def make_jaco(task, obs_type, seed, img_size):
+    return jaco.make(task, obs_type, seed, img_size)
