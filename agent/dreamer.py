@@ -88,9 +88,7 @@ class DreamerAgent(Module):
     return meta
 
   def reinit_actor(self):
-    init_actor = self.cfg.get('init_actor', True) 
-    if init_actor:
-        utils.hard_update_params(self._task_behavior.actor_init, self._task_behavior.actor)
+    utils.hard_update_params(self._task_behavior.actor_init, self._task_behavior.actor)
 
   def init_from(self, other):
       init_critic = self.cfg.get('init_critic', False)
