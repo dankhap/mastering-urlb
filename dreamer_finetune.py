@@ -261,11 +261,11 @@ class Workspace:
                         print(f"Pretraining for {self.cfg.pretrain_updates} updates")
                         started_train = True
                         updates_num = self.cfg.pretrain_updates
-                        for _ in range(updates_num):
-                            metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
                         if self.cfg.reinit_actor:
                             print("Reinitializing actor")
                             self.agent.reinit_actor()
+                        for _ in range(updates_num):
+                            metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
                     else:
                         metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
                 if should_log_scalars(self.global_step):
