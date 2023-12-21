@@ -239,12 +239,15 @@ class WorldModel(Module):
     self.grad_heads = config.grad_heads
     self.heads = nn.ModuleDict(self.heads)
     self.model_opt = common.Optimizer('model', self.parameters(), **config.model_opt, use_amp=self._use_amp)
+    self._wm_updates = 0
 
   def update(self, data, state=None):
     with common.RequiresGrad(self):
       with torch.cuda.amp.autocast(enabled=self._use_amp):
         model_loss, state, outputs, metrics = self.loss(data, state)
       metrics.update(self.model_opt(model_loss, self.parameters())) 
+      metrics['wm_updates'] = self._wm_updates
+    self._wm_updates += 1
     return state, outputs, metrics
 
   def loss(self, data, state=None):
@@ -391,6 +394,7 @@ class ActorCritic(Module):
       self._updates = 0 
     else:
       self._target_critic = self.critic
+    self._policy_updates = 0
     self.actor_opt = common.Optimizer('actor', self.actor.parameters(), **self.cfg.actor_opt, use_amp=self._use_amp)
     self.critic_opt = common.Optimizer('critic', self.critic.parameters(), **self.cfg.critic_opt, use_amp=self._use_amp)
     self.rewnorm = common.StreamNorm(**self.cfg.reward_norm, device=self.device)
@@ -419,6 +423,8 @@ class ActorCritic(Module):
       metrics.update(self.critic_opt(critic_loss, self.critic.parameters()))
     metrics.update(**mets1, **mets2, **mets3, **mets4)
     self.update_slow_target()  # Variables exist after first forward pass.
+    metrics['policy_updates'] = self._policy_updates
+    self._policy_updates += 1
     return metrics
 
   def actor_loss(self, seq, target): #, step):
