@@ -23,6 +23,11 @@ from hydra.utils import get_original_cwd, to_absolute_path
 
 torch.backends.cudnn.benchmark = True
 
+def noneiter():
+    while True:
+        yield None
+
+
 def make_agent(obs_type, obs_spec, action_spec, num_expl_steps, cfg):
     cfg.obs_type = obs_type
     cfg.obs_shape = obs_spec.shape
@@ -39,6 +44,9 @@ def make_dreamer_agent(obs_space, action_spec, cur_config, cfg):
 class Workspace:
     def __init__(self, cfg, savedir=None, workdir=None):
         self.workdir = Path.cwd() if workdir is None else workdir
+        self.preload_buffer = Path(cfg.preload_buffer) if cfg.preload_buffer else ""
+        self.wandb_group = cfg.agent.name if cfg.wandb_group == "" else cfg.wandb_group
+
         print(f'workspace: {self.workdir}')
 
         self.cfg = cfg
@@ -95,10 +103,24 @@ class Workspace:
                                                     length=cfg.batch_length, **cfg.replay,
                                                     device=cfg.device)
         # create replay buffer
-        self.replay_loader = make_replay_loader(self.replay_storage,
-                                                cfg.batch_size, # 
-                                                cfg.replay_buffer_num_workers)
+        self.replay_loader = None
+        if not cfg.zero_shot:
+            self.replay_loader = make_replay_loader(self.replay_storage,
+                                                    cfg.batch_size, # 
+                                                    cfg.replay_buffer_num_workers)
+
+        self.preload_loader = None
+        if cfg.preload_buffer != "":
+            # create preloaded buffer
+            self.preload_storage = ReplayBuffer(data_specs, meta_specs,
+                                                      self.preload_buffer / 'buffer',
+                                                      length=cfg.batch_length, **cfg.replay,
+                                                      device=cfg.device)
+            self.preload_loader = make_replay_loader(self.preload_storage,
+                                                    cfg.batch_size, # 
+                                                    cfg.replay_buffer_num_workers)
         self._replay_iter = None
+        self._preload_iter = None
 
         # Globals
         self.timer = utils.Timer()
@@ -119,9 +141,22 @@ class Workspace:
         return self.global_step * self.cfg.action_repeat
 
     @property
+    def preload_iter(self):
+
+        if self._preload_iter is None:
+            if self.preload_loader is None:
+                self._preload_iter = iter(noneiter())
+            else:
+                self._preload_iter = iter(self.preload_loader)
+        return self._preload_iter
+
+    @property
     def replay_iter(self):
         if self._replay_iter is None:
-            self._replay_iter = iter(self.replay_loader)
+            if self.replay_loader is None:
+                self._replay_iter = iter(noneiter())
+            else:
+                self._replay_iter = iter(self.replay_loader)
         return self._replay_iter
 
     def eval(self):
@@ -265,9 +300,13 @@ class Workspace:
                             print("Reinitializing actor")
                             self.agent.reinit_actor()
                         for _ in range(updates_num):
-                            metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
+                            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
                     else:
-                        metrics = self.agent.update(next(self.replay_iter), self.global_step)[1] # , self.global_step)
+                        if not self.cfg.zero_shot:
+                            metrics = self.agent.update(next(self.replay_iter), None, self.global_step)[1] # , self.global_step)
+                        else:
+                            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step, update_wm=False)[1] # , self.global_step)
+
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
                 if self.global_step > 0 and should_log_recon(self.global_step):
@@ -275,13 +314,18 @@ class Workspace:
                     self.logger.log_video(videos, self.global_frame)
 
             # take env step
-            dreamer_obs = self.train_env.step(action)
-            data = dreamer_obs
-            episode_reward += dreamer_obs['reward']
-            self.replay_storage.add(data, meta) 
+            if not self.cfg.zero_shot:
+                dreamer_obs = self.train_env.step(action)
+                data = dreamer_obs
+                episode_reward += dreamer_obs['reward']
+                self.replay_storage.add(data, meta) 
+                if not bool(dreamer_obs['is_last']): 
+                    meta = self.agent.update_meta(meta, self.global_step, dreamer_obs)
+            else:
+                episode_reward = 0
+
             episode_step += 1
             self._global_step += 1
-            if not bool(dreamer_obs['is_last']): meta = self.agent.update_meta(meta, self.global_step, dreamer_obs)
         if self.cfg.save_ft_model:
             self.save_finetuned_model()
 

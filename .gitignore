@@ -2,3 +2,4 @@ __pycache__
 exp_local
 pretrained_models/pixels
 wandb
+pretrained_models/sup_pt/pixels

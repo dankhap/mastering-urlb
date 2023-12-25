@@ -16,7 +16,8 @@ eval_every_frames: 10000
 num_eval_episodes: 10
 # pretrained
 snapshot_ts: 100000
-snapshot_base_dir: /code/mastering-urlb/pretrained_models
+snapshot_base_dir: /code/mastering-urlb/pretrained_models/${experiment}
+# snapshot_base_dir: /code/mastering-urlb/pretrained_models
 custom_snap_dir: none
 # replay buffer
 replay_buffer_size: 1000000
@@ -31,6 +32,7 @@ use_tb: true
 use_wandb: true
 # experiment
 experiment: ft
+wandb_group: ""
 project_name: ???
 
 # log settings
@@ -52,6 +54,7 @@ reinit_actor: false # do we re-initialize the actor after collecting the seed bu
 preload_buffer: "" # path for preloaded buffer of possibly expert trajectories
 wm_train_ratio: 1.0 # ratio between env steps and wm updates
 policy_train_ratio: 1.0 # ratio between env steps and wm updates
+zero_shot: false
 
 # Fine-tuning ablation
 save_ft_model: true

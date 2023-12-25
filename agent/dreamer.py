@@ -57,8 +57,17 @@ class DreamerAgent(Module):
     metrics.update(mets)
     return state, outputs, metrics
 
-  def update(self, data, step):
-    state, outputs, metrics =self.update_wm(data, step)
+  def update(self, data, pre_data, step, update_wm=True):
+    outputs = {}
+    metrics = {}
+    state = None
+
+    if update_wm:
+        state, outputs, metrics =self.update_wm(data, step)
+    if pre_data is not None:
+        with torch.no_grad():
+            _, state, outputs, _ = self.wm.loss(pre_data, state)
+            data = pre_data
 
     start = outputs['post']
     # Don't train the policy/value if just using MPC
