@@ -305,11 +305,12 @@ class Workspace:
                             print("Reinitializing actor")
                             self.agent.reinit_actor()
                         if self.cfg.expert_steps > 0:
+                            print("pretrainig expert")
                             for _ in range(updates_num):
-                                metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
+                                metrics = self.agent.update(next(self.preload_iter), None, self.global_step)[1] # , self.global_step)
                         else:
                             for _ in range(updates_num):
-                                metrics = self.agent.update(next(self.preload_iter), next(self.replay_iter), self.global_step)[1] # , self.global_step)
+                                metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
                     else:
                         if not self.cfg.zero_shot:
                             metrics = self.agent.update(next(self.replay_iter), None, self.global_step)[1] # , self.global_step)
