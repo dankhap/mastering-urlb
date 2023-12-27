@@ -5,7 +5,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 import os
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 os.environ['MUJOCO_GL'] = 'egl'
-os.environ['WANDB_MODE'] = 'offline'
+# os.environ['WANDB_MODE'] = 'offline'
 
 
 from pathlib import Path
@@ -304,8 +304,12 @@ class Workspace:
                         if self.cfg.reinit_actor:
                             print("Reinitializing actor")
                             self.agent.reinit_actor()
-                        for _ in range(updates_num):
-                            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
+                        if self.cfg.expert_steps > 0:
+                            for _ in range(updates_num):
+                                metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
+                        else:
+                            for _ in range(updates_num):
+                                metrics = self.agent.update(next(self.preload_iter), next(self.replay_iter), self.global_step)[1] # , self.global_step)
                     else:
                         if not self.cfg.zero_shot:
                             metrics = self.agent.update(next(self.replay_iter), None, self.global_step)[1] # , self.global_step)
