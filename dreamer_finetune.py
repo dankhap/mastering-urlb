@@ -5,6 +5,8 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 import os
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 os.environ['MUJOCO_GL'] = 'egl'
+os.environ['WANDB_MODE'] = 'offline'
+
 
 from pathlib import Path
 import pandas as pd
@@ -111,10 +113,13 @@ class Workspace:
 
         self.preload_loader = None
         if cfg.preload_buffer != "":
+            preload_cfg = cfg.replay.copy()
+            if cfg.expert_steps > 0:
+                preload_cfg['capacity'] = cfg.expert_steps
             # create preloaded buffer
             self.preload_storage = ReplayBuffer(data_specs, meta_specs,
                                                       self.preload_buffer / 'buffer',
-                                                      length=cfg.batch_length, **cfg.replay,
+                                                      length=cfg.batch_length, **preload_cfg,
                                                       device=cfg.device)
             self.preload_loader = make_replay_loader(self.preload_storage,
                                                     cfg.batch_size, # 
