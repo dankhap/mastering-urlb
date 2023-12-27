@@ -395,7 +395,7 @@ class Workspace:
                     cfg.experiment, cfg.agent.name, cfg.task, cfg.obs_type,
                     str(cfg.seed)
                 ])
-                wandb.init(project=cfg.project_name + "_finetune", group=cfg.agent.name, name=exp_name, id=v, resume="must")
+                wandb.init(project=cfg.project_name + "_finetune", group=self.wandb_group, name=exp_name, id=v, resume="must")
 
     def setup_wandb(self):
         cfg = self.cfg
@@ -403,7 +403,7 @@ class Workspace:
             cfg.experiment, cfg.agent.name, cfg.task, cfg.obs_type,
             str(cfg.seed)
         ])
-        wandb.init(project=cfg.project_name + "_finetune", group=cfg.agent.name, name=exp_name)
+        wandb.init(project=cfg.project_name + "_finetune", group=self.wandb_group, name=exp_name)
         wandb.config.update(cfg)
         self.wandb_run_id = wandb.run.id
 
