@@ -1,4 +1,5 @@
 import warnings
+from distutils.dir_util import copy_tree
 
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 
@@ -48,6 +49,8 @@ class Workspace:
         self.workdir = Path.cwd() if workdir is None else workdir
         self.preload_buffer = Path(cfg.preload_buffer) if cfg.preload_buffer else ""
         self.wandb_group = cfg.agent.name if cfg.wandb_group == "" else cfg.wandb_group
+        if cfg.preload_replay and type(self.preload_buffer) == Path:
+            copy_tree(self.preload_replay / "buffer", self.workdir / "buffer")
 
         print(f'workspace: {self.workdir}')
 
@@ -112,7 +115,7 @@ class Workspace:
                                                     cfg.replay_buffer_num_workers)
 
         self.preload_loader = None
-        if cfg.preload_buffer != "":
+        if cfg.preload_buffer != "" and not cfg.preload_replay:
             preload_cfg = cfg.replay.copy()
             if cfg.expert_steps > 0:
                 preload_cfg['capacity'] = cfg.expert_steps
@@ -312,10 +315,8 @@ class Workspace:
                             for _ in range(updates_num):
                                 metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
                     else:
-                        if not self.cfg.zero_shot:
-                            metrics = self.agent.update(next(self.replay_iter), None, self.global_step)[1] # , self.global_step)
-                        else:
-                            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step, update_wm=False)[1] # , self.global_step)
+                        update_wm = not self.cfg.zero_shot
+                        metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step, update_wm=update_wm)[1] # , self.global_step)
 
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
