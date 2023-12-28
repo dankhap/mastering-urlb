@@ -108,6 +108,8 @@ class DreamerAgent(Module):
       utils.hard_update_params(other.wm.rssm, self.wm.rssm)
       utils.hard_update_params(other.wm.encoder, self.wm.encoder)
       utils.hard_update_params(other.wm.heads['decoder'], self.wm.heads['decoder'])
+      if self.cfg.zero_shot:
+          utils.hard_update_params(other.wm.heads['reward'], self.wm.heads['reward'])
 
       if init_actor:
         print(f"Copying the pretrained actor")
