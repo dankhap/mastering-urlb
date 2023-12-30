@@ -51,6 +51,7 @@ class Workspace:
         self.wandb_group = cfg.agent.name if cfg.wandb_group == "" else cfg.wandb_group
         if cfg.preload_replay and type(self.preload_buffer) == Path:
             copy_tree(self.preload_replay / "buffer", self.workdir / "buffer")
+        cfg.slurm_id = os.environ['SLURM_JOB_ID']
 
         print(f'workspace: {self.workdir}')
 
