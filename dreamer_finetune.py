@@ -127,7 +127,7 @@ class Workspace:
             self.preload_loader = make_replay_loader(self.preload_storage,
                                                     cfg.batch_size, # 
                                                     cfg.replay_buffer_num_workers)
-            self.agent.preload_steps = self.preload_storage._total_steps
+            self.agent.preload_steps = self.preload_storage._loaded_steps
 
         self._replay_iter = None
         self._preload_iter = None

@@ -53,7 +53,7 @@ pretrain_updates: 0 # how many consecutive updates we do for the world model and
 reinit_actor: false # do we re-initialize the actor after collecting the seed buffer
 preload_buffer: "" # path for preloaded buffer of possibly expert trajectories
 preload_replay: false
-expert_steps: 2500 # number of expert trajectories to load
+expert_steps: 0 # number of expert trajectories to load
 wm_train_ratio: 1.0 # ratio between env steps and wm updates
 policy_train_ratio: 1.0 # ratio between env steps and wm updates
 zero_shot: false
