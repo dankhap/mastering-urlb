@@ -11,6 +11,7 @@ def stop_gradient(x):
 
 Module = nn.Module
 
+  
 class DreamerAgent(Module):
 
   def __init__(self, 
@@ -29,6 +30,7 @@ class DreamerAgent(Module):
     self._task_behavior = ActorCritic(cfg, self.act_spec, self.tfstep)
     self.to(cfg.device)
     self.requires_grad_(requires_grad=False)
+    self.preload_steps = 0
 
   def act(self, obs, meta, step, eval_mode, state):
     obs = {k : torch.as_tensor(np.copy(v), device=self.device).unsqueeze(0) for k, v in obs.items()}
@@ -57,6 +59,19 @@ class DreamerAgent(Module):
     metrics.update(mets)
     return state, outputs, metrics
 
+  def sample_pre_data(self, step):
+    offline_samples = self.preload_steps
+    if offline_samples == 0:
+      return False
+    online_samples = step
+  
+    # Consider varying sized of offline and on line datasets, with priority to online
+    total = max(1000000, online_samples + offline_samples)
+    online_weight = total - offline_samples
+    dists = [offline_samples / total, online_weight / total]
+    use_offline = np.random.choice([True, False], p=dists)
+    return use_offline
+
   def update(self, data, pre_data, step, update_wm=True):
     outputs = {}
     metrics = {}
@@ -64,7 +79,7 @@ class DreamerAgent(Module):
 
     if update_wm:
         state, outputs, metrics =self.update_wm(data, step)
-    if pre_data is not None:
+    if pre_data is not None and self.sample_pre_data(step):
         with torch.no_grad():
             _, state, outputs, _ = self.wm.loss(pre_data, state)
             data = pre_data
