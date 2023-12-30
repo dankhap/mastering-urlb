@@ -6,7 +6,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 import os
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 os.environ['MUJOCO_GL'] = 'egl'
-# os.environ['WANDB_MODE'] = 'offline'
+os.environ['WANDB_MODE'] = 'offline'
 
 
 from pathlib import Path
@@ -23,6 +23,7 @@ from logger import Logger
 from dreamer_replay import ReplayBuffer, make_replay_loader
 from agent.dreamer import DreamerAgent
 from hydra.utils import get_original_cwd, to_absolute_path
+from omegaconf import open_dict
 
 torch.backends.cudnn.benchmark = True
 
@@ -51,8 +52,10 @@ class Workspace:
         self.wandb_group = cfg.agent.name if cfg.wandb_group == "" else cfg.wandb_group
         if cfg.preload_replay and type(self.preload_buffer) == Path:
             copy_tree(self.preload_replay / "buffer", self.workdir / "buffer")
-        cfg.slurm_id = os.environ['SLURM_JOB_ID']
+        with open_dict(cfg):
+            cfg.slurm_id = os.environ['SLURM_JOB_ID']
 
+        print(f'slurm id: {cfg.slurm_id}')
         print(f'workspace: {self.workdir}')
 
         self.cfg = cfg
