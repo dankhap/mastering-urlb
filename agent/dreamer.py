@@ -31,6 +31,8 @@ class DreamerAgent(Module):
     self.to(cfg.device)
     self.requires_grad_(requires_grad=False)
     self.preload_steps = 0
+    self.zero_shot = cfg.zero_shot
+    self.train_wm_on_preload = False
 
   def act(self, obs, meta, step, eval_mode, state):
     obs = {k : torch.as_tensor(np.copy(v), device=self.device).unsqueeze(0) for k, v in obs.items()}
@@ -63,26 +65,44 @@ class DreamerAgent(Module):
     offline_samples = self.preload_steps
     if offline_samples == 0:
       return False
+    if step == 0:
+      return True
     online_samples = step
   
-    # Consider varying sized of offline and on line datasets, with priority to online
-    total = max(1000000, online_samples + offline_samples)
-    online_weight = total - offline_samples
-    dists = [offline_samples / total, online_weight / total]
+    # Consider varying sized of offline and online datasets, with priority to online
+        
+    if self.cfg.expert_steps > 0:
+        total = online_samples + offline_samples
+        offline_weight = offline_samples
+        online_weight = online_samples
+    else:
+        offline_samples = min(1000000 - online_samples, offline_samples)
+        total = online_samples + offline_samples
+        # total = max(1000000, online_samples + offline_samples)
+        online_weight = total - offline_samples
+        offline_weight = offline_samples
+
+    dists = [offline_weight / total, online_weight / total]
     use_offline = np.random.choice([True, False], p=dists)
     return use_offline
 
-  def update(self, data, pre_data, step, update_wm=True):
+  def update(self, data, pre_data, step):
     outputs = {}
     metrics = {}
     state = None
 
-    if update_wm:
-        state, outputs, metrics =self.update_wm(data, step)
-    if pre_data is not None and self.sample_pre_data(step):
+    wm_use_pre_data = True if pre_data and self.cfg.expert_steps > 0 and self.sample_pre_data(step) else False
+    p_use_pre_data = True if pre_data and self.sample_pre_data(step) else False
+
+    wm_data = pre_data if wm_use_pre_data else data
+    p_data = pre_data if p_use_pre_data else data
+
+    if wm_data:
+        state, outputs, metrics =self.update_wm(wm_data, step)
+
+    if p_data and p_use_pre_data != wm_use_pre_data:
         with torch.no_grad():
-            _, state, outputs, _ = self.wm.loss(pre_data, state)
-            data = pre_data
+            _, state, outputs, _ = self.wm.loss(p_data, state)
 
     start = outputs['post']
     # Don't train the policy/value if just using MPC
@@ -91,7 +111,7 @@ class DreamerAgent(Module):
     start = {k: stop_gradient(v) for k,v in start.items()}
     reward_fn = lambda seq: self.wm.heads['reward'](seq['feat']).mean #.mode()
     metrics.update(self._task_behavior.update(
-        self.wm, start, data['is_terminal'], reward_fn))
+        self.wm, start, p_data['is_terminal'], reward_fn))
     return state, metrics
 
   def report(self, data):

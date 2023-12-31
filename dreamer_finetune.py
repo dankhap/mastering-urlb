@@ -6,7 +6,7 @@ warnings.filterwarnings('ignore', category=DeprecationWarning)
 import os
 os.environ['MKL_SERVICE_FORCE_INTEL'] = '1'
 os.environ['MUJOCO_GL'] = 'egl'
-# os.environ['WANDB_MODE'] = 'offline'
+os.environ['WANDB_MODE'] = 'offline'
 
 
 from pathlib import Path
@@ -113,7 +113,7 @@ class Workspace:
                                                     device=cfg.device)
         # create replay buffer
         self.replay_loader = None
-        if not cfg.zero_shot:
+        if not cfg.zero_shot or cfg.expert_steps > 0:
             self.replay_loader = make_replay_loader(self.replay_storage,
                                                     cfg.batch_size, # 
                                                     cfg.replay_buffer_num_workers)
@@ -125,9 +125,9 @@ class Workspace:
                 preload_cfg['capacity'] = cfg.expert_steps
             # create preloaded buffer
             self.preload_storage = ReplayBuffer(data_specs, meta_specs,
-                                                      self.preload_buffer / 'buffer',
-                                                      length=cfg.batch_length, **preload_cfg,
-                                                      device=cfg.device)
+                                                  self.preload_buffer / 'buffer',
+                                                  length=cfg.batch_length, **preload_cfg,
+                                                  device=cfg.device)
             self.preload_loader = make_replay_loader(self.preload_storage,
                                                     cfg.batch_size, # 
                                                     cfg.replay_buffer_num_workers)
@@ -321,8 +321,8 @@ class Workspace:
                             for _ in range(updates_num):
                                 metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
                     else:
-                        update_wm = not self.cfg.zero_shot
-                        metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step, update_wm=update_wm)[1] # , self.global_step)
+                        # ZS runs can have empty replay_iter, which wouldnt update the WM, but expert tests can collect seed frames, which will update the WM
+                        metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
 
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
@@ -331,7 +331,7 @@ class Workspace:
                     self.logger.log_video(videos, self.global_frame)
 
             # take env step
-            if not self.cfg.zero_shot:
+            if not self.cfg.zero_shot or seed_until_step(self.global_step):
                 dreamer_obs = self.train_env.step(action)
                 data = dreamer_obs
                 episode_reward += dreamer_obs['reward']
