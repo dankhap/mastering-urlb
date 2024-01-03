@@ -105,6 +105,7 @@ class Workspace:
                                                   self.workdir / 'buffer',
                                                   length=cfg.batch_length, **cfg.replay,
                                                   device=cfg.device)
+        self.replay_storage.counter = self.agent
 
         if self.cfg.save_eval_episodes:
             self.eval_storage = ReplayBuffer(data_specs, meta_specs,

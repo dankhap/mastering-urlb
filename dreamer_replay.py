@@ -35,6 +35,7 @@ class ReplayBuffer(IterableDataset):
     self._data_specs = data_specs
     self._meta_specs = meta_specs    
     self.device = device
+    self.counter = None
     try:
       assert self._minlen <= self._length <= self._maxlen
     except:
@@ -75,6 +76,8 @@ class ReplayBuffer(IterableDataset):
       if bool(dreamer_obs['is_last']): 
         self.add_episode(episode)
         episode.clear()
+    if self.counter is not None:
+        self.counter.online_storage_size += 1
 
   def add_episode(self, episode):
     length = eplen(episode)

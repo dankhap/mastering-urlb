@@ -30,9 +30,11 @@ class DreamerAgent(Module):
     self._task_behavior = ActorCritic(cfg, self.act_spec, self.tfstep)
     self.to(cfg.device)
     self.requires_grad_(requires_grad=False)
+
     self.preload_steps = 0
     self.zero_shot = cfg.zero_shot
     self.train_wm_on_preload = False
+    self.online_storage_size = 0
 
   def act(self, obs, meta, step, eval_mode, state):
     obs = {k : torch.as_tensor(np.copy(v), device=self.device).unsqueeze(0) for k, v in obs.items()}
@@ -65,9 +67,9 @@ class DreamerAgent(Module):
     offline_samples = self.preload_steps
     if offline_samples == 0:
       return False
-    if self.zero_shot or step == 0:
+    if self.online_storage_size == 0 or step == 0:
       return True
-    online_samples = step
+    online_samples = self.online_storage_size
   
     # Consider varying sized of offline and online datasets, with priority to online
         
