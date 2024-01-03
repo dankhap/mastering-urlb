@@ -65,7 +65,7 @@ class DreamerAgent(Module):
     offline_samples = self.preload_steps
     if offline_samples == 0:
       return False
-    if step == 0:
+    if self.zero_shot or step == 0:
       return True
     online_samples = step
   
