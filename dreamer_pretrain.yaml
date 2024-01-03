@@ -33,6 +33,7 @@ use_wandb: true
 # experiment
 experiment: pt
 project_name: ???
+zero_shot: false
 
 # log settings
 log_every_frames: 1000
