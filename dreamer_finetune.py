@@ -238,7 +238,8 @@ class Workspace:
         data = dreamer_obs
         agent_state = None
         meta = self.agent.init_meta()
-        self.replay_storage.add(data, meta) 
+        if not self.cfg.zero_shot:
+            self.replay_storage.add(data, meta) 
         metrics = None
         started_train = False
         while train_until_step(self.global_step):
