@@ -114,7 +114,8 @@ class Workspace:
                                                     device=cfg.device)
         # create replay buffer
         self.replay_loader = None
-        if not cfg.zero_shot or cfg.expert_steps > 0:
+        self.collect_data = not cfg.zero_shot or cfg.expert_steps > 0
+        if self.collect_data:
             self.replay_loader = make_replay_loader(self.replay_storage,
                                                     cfg.batch_size, # 
                                                     cfg.replay_buffer_num_workers)
@@ -174,7 +175,8 @@ class Workspace:
                 self._replay_iter = iter(self.replay_loader)
         return self._replay_iter
 
-    def eval(self):
+    def eval(self, mpc=False):
+        log_suffix = "_mpc" if mpc else ""
         step, episode, total_reward, ep_rew = 0, 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
         meta = self.agent.init_meta()
@@ -186,7 +188,7 @@ class Workspace:
             if self.cfg.save_eval_episodes: self.eval_storage.add(data, meta) 
             while not bool(dreamer_obs['is_last']):
                 with torch.no_grad(), utils.eval_mode(self.agent):
-                    if self.cfg.mpc:
+                    if self.cfg.mpc or mpc:
                         action, agent_state = self.agent.plan(dreamer_obs,
                                                 meta,
                                                 self.global_step,
@@ -212,10 +214,10 @@ class Workspace:
             episode += 1
 
         with self.logger.log_and_dump_ctx(self.global_frame, ty='eval') as log:
-            log('episode_reward', total_reward / episode)
-            log('episode_length', step * self.cfg.action_repeat / episode)
-            log('episode', self.global_episode)
-            log('step', self.global_step)
+            log(f'episode_reward{log_suffix}', total_reward / episode)
+            log(f'episode_length{log_suffix}', step * self.cfg.action_repeat / episode)
+            log(f'episode{log_suffix}', self.global_episode)
+            log(f'step{log_suffix}', self.global_step)
 
     def train(self):
         # predicates
@@ -238,7 +240,7 @@ class Workspace:
         data = dreamer_obs
         agent_state = None
         meta = self.agent.init_meta()
-        if not self.cfg.zero_shot:
+        if self.collect_data:
             self.replay_storage.add(data, meta) 
         metrics = None
         started_train = False
@@ -279,6 +281,8 @@ class Workspace:
                     self.logger.log('eval_total_time', self.timer.total_time(),
                                     self.global_frame)
                     self.eval()
+                    if self.cfg.mpc_eval:
+                        self.eval(mpc=True)
 
             if hasattr(self.agent, "regress_meta"):
                 repeat = self.cfg.action_repeat

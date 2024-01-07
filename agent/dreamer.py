@@ -88,6 +88,10 @@ class DreamerAgent(Module):
     use_offline = np.random.choice([True, False], p=dists)
     return use_offline
 
+
+  def need_train_policy(self, step):
+      return step > self.cfg.wm_pretrain_steps // self.cfg.action_repeat
+
   def update(self, data, pre_data, step):
     outputs = {}
     metrics = {}
@@ -101,6 +105,9 @@ class DreamerAgent(Module):
 
     if wm_data:
         state, outputs, metrics =self.update_wm(wm_data, step)
+
+    if not self.need_train_policy(step):
+        return state, metrics
 
     if p_data and p_use_pre_data != wm_use_pre_data:
         with torch.no_grad():
