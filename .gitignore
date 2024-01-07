@@ -3,3 +3,4 @@ exp_local
 pretrained_models/pixels
 wandb
 pretrained_models/sup_pt/pixels
+pretrained_models/pt/pixels/walker/lbs_dreamer/2
