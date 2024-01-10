@@ -17,8 +17,9 @@ COMMON_TRAIN_FORMAT = [('frame', 'F', 'int'), ('step', 'S', 'int'),
 COMMON_EVAL_FORMAT = [('frame', 'F', 'int'), ('step', 'S', 'int'),
                       ('episode', 'E', 'int'), ('episode_length', 'L', 'int'),
                       ('episode_reward', 'R', 'float'),
-                      ('total_time', 'T', 'time')]
-
+                      ('total_time', 'T', 'time'), ('step_mpc', 'S', 'int'),
+                      ('episode_mpc', 'E', 'int'), ('episode_length_mpc', 'L', 'int'),
+                      ('episode_reward_mpc', 'R', 'float')]
 
 class AverageMeter(object):
     def __init__(self):
