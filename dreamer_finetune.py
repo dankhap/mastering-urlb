@@ -177,6 +177,7 @@ class Workspace:
 
     def eval(self, mpc=False):
         log_suffix = "_mpc" if mpc else ""
+        log_suffix = ""
         step, episode, total_reward, ep_rew = 0, 0, 0, 0
         eval_until_episode = utils.Until(self.cfg.num_eval_episodes)
         meta = self.agent.init_meta()
@@ -280,9 +281,10 @@ class Workspace:
                 if eval_every_step(self.global_step):
                     self.logger.log('eval_total_time', self.timer.total_time(),
                                     self.global_frame)
-                    self.eval()
-                    if self.cfg.mpc_eval:
-                        self.eval(mpc=True)
+                    # self.eval()
+                    # if self.cfg.mpc_eval:
+                    #     self.eval(mpc=True)
+                    self.eval(mpc=self.cfg.mpc_eval)
 
             if hasattr(self.agent, "regress_meta"):
                 repeat = self.cfg.action_repeat
