@@ -75,6 +75,8 @@ class DreamerAgent(Module):
         
     if self.cfg.expert_steps > 0:
         total = online_samples + offline_samples
+        if self.cfg.sym_samp:
+            online_weight = offline_weight = total // 2
         offline_weight = offline_samples
         online_weight = online_samples
     else:
