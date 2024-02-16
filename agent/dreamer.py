@@ -123,6 +123,7 @@ class DreamerAgent(Module):
     reward_fn = lambda seq: self.wm.heads['reward'](seq['feat']).mean #.mode()
     metrics.update(self._task_behavior.update(
         self.wm, start, p_data['is_terminal'], reward_fn))
+    metrics['sampled_offline'] = wm_use_pre_data and p_use_pre_data
     return state, metrics
 
   def report(self, data):

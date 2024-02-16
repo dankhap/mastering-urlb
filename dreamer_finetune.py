@@ -240,6 +240,7 @@ class Workspace:
         dreamer_obs = self.train_env.reset()
         data = dreamer_obs
         agent_state = None
+        skips_count = 0
         meta = self.agent.init_meta()
         if self.collect_data:
             self.replay_storage.add(data, meta) 
@@ -330,7 +331,16 @@ class Workspace:
                                 metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
                     else:
                         # ZS runs can have empty replay_iter, which wouldnt update the WM, but expert tests can collect seed frames, which will update the WM
-                        metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
+                        sampled_offline = True
+                        while sampled_offline:
+                            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter),
+                                                        self.global_step)[1] # , self.global_step)
+                            sampled_offline = metrics.get('sampled_offline', False)
+                            if sampled_offline:
+                                skips_count += 1
+                            sampled_offline = sampled_offline and self.cfg.skip_offline_steps
+
+
 
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
@@ -435,6 +445,7 @@ class Workspace:
 @hydra.main(config_path='.', config_name='dreamer_finetune')
 def main(cfg):
     from dreamer_finetune import Workspace as W
+				# "agent.critic.norm=layer",
     root_dir = Path.cwd()
     cfg.snapshot_base_dir = str(Path(get_original_cwd()) / cfg.snapshot_base_dir)
     cfg.project_name = 'local'

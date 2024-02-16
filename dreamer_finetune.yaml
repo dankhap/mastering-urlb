@@ -56,6 +56,7 @@ preload_buffer: "" # path for preloaded buffer of possibly expert trajectories
 preload_replay: false
 expert_steps: 0 # number of expert trajectories to load
 sym_samp: false
+skip_offline_steps: false
 
 # wm_train_ratio: 1.0 # ratio between env steps and wm updates currently handled by train_every_actions
 policy_train_ratio: 1.0 # ratio between env steps and wm updates
