@@ -18,6 +18,7 @@ class ExtendedTimeStep(NamedTuple):
     reward: Any
     discount: Any
     observation: Any
+    state: Any
     action: Any
 
     def first(self):
@@ -131,6 +132,7 @@ class FrameStackWrapper(dm_env.Environment):
 
         wrapped_obs_spec = env.observation_spec()
         assert pixels_key in wrapped_obs_spec
+        self.original_obs_spec = wrapped_obs_spec.copy()
 
         pixels_shape = wrapped_obs_spec[pixels_key].shape
         # remove batch dim
@@ -146,7 +148,9 @@ class FrameStackWrapper(dm_env.Environment):
     def _transform_observation(self, time_step):
         assert len(self._frames) == self._num_frames
         obs = np.concatenate(list(self._frames), axis=0)
-        return time_step._replace(observation=obs)
+        time_step.observation['pixels'] = obs
+        return time_step
+        # return time_step._replace(observation=obs)
 
     def _extract_pixels(self, time_step):
         pixels = time_step.observation[self._pixels_key]
@@ -251,7 +255,15 @@ class ExtendedTimeStepWrapper(dm_env.Environment):
         if action is None:
             action_spec = self.action_spec()
             action = np.zeros(action_spec.shape, dtype=action_spec.dtype)
-        return ExtendedTimeStep(observation=time_step.observation,
+
+        obs = time_step.observation  
+        state = obs                                          
+        if hasattr(self._env, '_pixels_key'):                
+            state = obs['observations']                      
+            obs = obs[self._env._pixels_key]                 
+                                                             
+        return ExtendedTimeStep(observation=obs,             
+                                state=state,                 
                                 step_type=time_step.step_type,
                                 action=action,
                                 reward=time_step.reward or 0.0,
@@ -298,6 +310,7 @@ class DreamerObsWrapper:
         'is_last': time_step.last(),
         'is_terminal': time_step.discount == 0,
         'observation': time_step.observation,
+        'state': time_step.state,
         'action' : action,
         'discount': time_step.discount
     }
@@ -311,6 +324,7 @@ class DreamerObsWrapper:
         'is_last': False,
         'is_terminal': False,
         'observation': time_step.observation,
+        'state': time_step.state,
         'action' : np.zeros_like(self.act_space['action'].sample()),
         'discount': time_step.discount
     }
@@ -416,7 +430,7 @@ def _make_dmc(obs_type, domain, task, frame_stack, action_repeat, seed, img_size
         camera_id = dict(quadruped=2).get(domain, 0)
         render_kwargs = dict(height=img_size, width=img_size, camera_id=camera_id)
         env = pixels.Wrapper(env,
-                             pixels_only=True,
+                             pixels_only=False,
                              render_kwargs=render_kwargs)
         env._size = (img_size, img_size)
         env._camera = camera_id
