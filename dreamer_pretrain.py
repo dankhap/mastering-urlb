@@ -68,11 +68,17 @@ class Workspace:
         # get meta specs
         meta_specs = self.agent.get_meta_specs()
         # create replay buffer
+
+        if hasattr(self.train_env, 'original_obs_spec'):
+            state_spec = self.train_env.original_obs_spec['observations']
+        else:
+            state_spec = self.train_env.observation_spec()
+    
         data_specs = (self.train_env.observation_spec(),
                       self.train_env.action_spec(),
                       specs.Array((1,), np.float32, 'reward'),
                       specs.Array((1,), np.float32, 'discount'),
-                      specs.Array((24,), np.float64,'state'))
+                      state_spec)
 
         # create data storage
         self.replay_storage = ReplayBuffer(data_specs, meta_specs,
