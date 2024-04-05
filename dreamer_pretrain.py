@@ -73,12 +73,13 @@ class Workspace:
             state_spec = self.train_env.original_obs_spec['observations']
         else:
             state_spec = self.train_env.observation_spec()
+        state_spec = specs.Array(state_spec.shape, state_spec.dtype, 'state') # renamed to state
     
         data_specs = (self.train_env.observation_spec(),
                       self.train_env.action_spec(),
                       specs.Array((1,), np.float32, 'reward'),
                       specs.Array((1,), np.float32, 'discount'),
-                      state_spec)
+                      state_spec) # state
 
         # create data storage
         self.replay_storage = ReplayBuffer(data_specs, meta_specs,
