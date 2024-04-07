@@ -282,6 +282,8 @@ class DreamerObsWrapper:
   def __init__(self, env):
     self._env = env 
     self._ignored_keys = []
+    physics_spec = self._env.physics.get_state()
+    self.physics_spec = specs.Array(physics_spec.shape, physics_spec.dtype, 'physics_state') 
     self._spaces = {
         'observation': self._env.observation_spec(), 
         # 'reward': gym.spaces.Box(-np.inf, np.inf, (), dtype=np.float32),
@@ -289,7 +291,8 @@ class DreamerObsWrapper:
         'is_first': gym.spaces.Box(0, 1, (), dtype=bool),
         'is_last': gym.spaces.Box(0, 1, (), dtype=bool),
         'is_terminal': gym.spaces.Box(0, 1, (), dtype=bool),
-    }
+         # renamed to state
+         }
 
   @property
   def obs_space(self):
@@ -311,6 +314,7 @@ class DreamerObsWrapper:
         'is_terminal': time_step.discount == 0,
         'observation': time_step.observation,
         'state': time_step.state,
+        'physics_state': self._env.physics.get_state(),
         'action' : action,
         'discount': time_step.discount
     }
@@ -325,6 +329,7 @@ class DreamerObsWrapper:
         'is_terminal': False,
         'observation': time_step.observation,
         'state': time_step.state,
+        'physics_state': self._env.physics.get_state(),
         'action' : np.zeros_like(self.act_space['action'].sample()),
         'discount': time_step.discount
     }

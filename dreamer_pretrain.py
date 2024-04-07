@@ -69,11 +69,10 @@ class Workspace:
         meta_specs = self.agent.get_meta_specs()
         # create replay buffer
 
-        if hasattr(self.train_env, 'original_obs_spec'):
-            state_spec = self.train_env.original_obs_spec['observations']
+        if hasattr(self.train_env, 'physics_spec'):
+            state_spec = self.train_env.physics_spec
         else:
             state_spec = self.train_env.observation_spec()
-        state_spec = specs.Array(state_spec.shape, state_spec.dtype, 'state') # renamed to state
     
         data_specs = (self.train_env.observation_spec(),
                       self.train_env.action_spec(),
