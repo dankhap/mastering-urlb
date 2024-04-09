@@ -10,13 +10,13 @@ reward_free: true
 task: none
 domain: walker # primal task will be infered in runtime
 # train settings
-num_train_frames: 2000010
+num_train_frames: 4000010
 num_seed_frames: 4000
 # eval
 eval_every_frames: 10000
 num_eval_episodes: 10
 # snapshot
-snapshots: [100000, 500000, 1000000, 2000000] 
+snapshots: [100000, 500000, 1000000, 2000000, 4000000] 
 # snapshot_dir: /code/mastering-urlb/pretrained_models/${obs_type}/${domain}/${agent.name}/${seed}
 snapshot_dir: /code/mastering-urlb/pretrained_models/${experiment}/${obs_type}/${domain}/${agent.name}/${seed}
 # replay buffer
