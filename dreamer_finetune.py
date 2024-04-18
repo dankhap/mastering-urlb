@@ -141,8 +141,13 @@ class Workspace:
         # Globals
         self.timer = utils.Timer()
         self._global_step = 0
+        self._global_iter = 0
         self._global_episode = 0
         self.savedir = savedir
+
+    @property
+    def global_iter(self):
+        return self._global_iter 
 
     @property
     def global_step(self):
@@ -228,6 +233,8 @@ class Workspace:
                                       self.cfg.action_repeat)
         eval_every_step = utils.Every(self.cfg.eval_every_frames,
                                       self.cfg.action_repeat)
+        eval_every_update = utils.Every(self.cfg.eval_every_update)
+
         train_every_n_steps = self.cfg.train_every_actions // self.cfg.action_repeat 
         should_train_step = utils.Every(train_every_n_steps * self.cfg.action_repeat,  
                                       self.cfg.action_repeat)
@@ -315,6 +322,7 @@ class Workspace:
             if not seed_until_step(self.global_step):
                 if should_train_step(self.global_step):
                     updates_num = 1
+                    self._global_iter += self._global_step
                     if started_train == False and self.cfg.pretrain_updates > 0:
                         print(f"Pretraining for {self.cfg.pretrain_updates} updates")
                         started_train = True
@@ -334,11 +342,12 @@ class Workspace:
                         sampled_offline = True
                         while sampled_offline:
                             metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter),
-                                                        self.global_step)[1] # , self.global_step)
+                                                        self.global_iter)[1] # , self.global_step)
                             sampled_offline = metrics.get('sampled_offline', False)
                             if sampled_offline:
                                 skips_count += 1
                             sampled_offline = sampled_offline and self.cfg.skip_offline_steps
+                            self._global_iter += 1
 
 
 
@@ -363,6 +372,21 @@ class Workspace:
             self._global_step += 1
         if self.cfg.save_ft_model:
             self.save_finetuned_model()
+
+        print("started offline stage")
+        for offline_update in range(self.cfg.offline_updates):
+            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_iter)[1]
+            # self._global_iter += self.cfg.offline_true_sample_rate
+            self._global_step += 1
+            self.logger.log_metrics(metrics, self.global_frame, ty='offline')
+
+            if eval_every_update(offline_update):
+                self.eval(mpc=self.cfg.mpc_eval)
+
+            if self.global_step % self.cfg.offline_log_interval == 0:
+                with self.logger.log_and_dump_ctx(self.global_frame, ty='offline') as log:
+                    log('step', self.global_step)
+
 
     def load_snapshot(self):
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir) 
@@ -430,7 +454,8 @@ class Workspace:
                     cfg.experiment, cfg.agent.name, cfg.task, cfg.obs_type,
                     str(cfg.seed)
                 ])
-                wandb.init(project=cfg.project_name + "_finetune", group=self.wandb_group, name=exp_name, id=v, resume="must")
+                # wandb.init(project=cfg.project_name + "_finetune", group=self.wandb_group, name=exp_name, id=v, resume="must")
+                wandb.init(project=cfg.project_name , group=self.wandb_group, name=exp_name, id=v, resume="must")
 
     def setup_wandb(self):
         cfg = self.cfg
@@ -438,7 +463,8 @@ class Workspace:
             cfg.experiment, cfg.agent.name, cfg.task, cfg.obs_type,
             str(cfg.seed)
         ])
-        wandb.init(project=cfg.project_name + "_finetune", group=self.wandb_group, name=exp_name)
+        # wandb.init(project=cfg.project_name + "_finetune", group=self.wandb_group, name=exp_name)
+        wandb.init(project=cfg.project_name , group=self.wandb_group, name=exp_name)
         wandb.config.update(cfg)
         self.wandb_run_id = wandb.run.id
 
@@ -448,7 +474,7 @@ def main(cfg):
 				# "agent.critic.norm=layer",
     root_dir = Path.cwd()
     cfg.snapshot_base_dir = str(Path(get_original_cwd()) / cfg.snapshot_base_dir)
-    cfg.project_name = 'local'
+    cfg.project_name = 'uorl_pretrain'
     workspace = W(cfg)
     snapshot = root_dir / 'last_snapshot.pt'
     if snapshot.exists():
