@@ -385,7 +385,7 @@ class Workspace:
             # self._global_iter += self.cfg.offline_true_sample_rate
             self._global_step += 1
             self.logger.log_metrics(metrics, self.global_frame, ty='offline')
-            print(f"{metrics['model_grad_norm'] =}")
+            # print(f"{metrics['model_grad_norm'] =}")
 
             if eval_every_update(offline_update):
                 self.eval(mpc=self.cfg.mpc_eval)
