@@ -48,12 +48,23 @@ def make_dreamer_agent(obs_space, action_spec, cur_config, cfg):
 class Workspace:
     def __init__(self, cfg, savedir=None, workdir=None):
         self.workdir = Path.cwd() if workdir is None else workdir
-        self.preload_buffer = Path(cfg.preload_buffer) if cfg.preload_buffer else ""
         self.wandb_group = cfg.agent.name if cfg.wandb_group == "" else cfg.wandb_group
-        if cfg.preload_replay and type(self.preload_buffer) == Path:
-            copy_tree(self.preload_replay / "buffer", self.workdir / "buffer")
+        self.preload_buffer = None
+        self.expert_buffer = None
         with open_dict(cfg):
             cfg.slurm_id = os.environ['SLURM_JOB_ID']
+
+        if cfg.buffer_dir != "":
+            self.preload_buffer = Path(cfg.buffer_dir)
+            if not self.preload_buffer.exists():
+                print("preload buffer does not exist")
+                exit()
+        if cfg.expert_dir != "":
+            self.expert_buffer = Path(cfg.expert_dir)
+            if not self.expert_buffer.exists():
+                print("expert_buffer_dir does not exist")
+                exit()
+
 
         print(f'slurm id: {cfg.slurm_id}')
         print(f'workspace: {self.workdir}')
@@ -104,8 +115,14 @@ class Workspace:
         self.replay_storage = ReplayBuffer(data_specs, meta_specs,
                                                   self.workdir / 'buffer',
                                                   length=cfg.batch_length, **cfg.replay,
-                                                  device=cfg.device)
+                                                  device=cfg.device,
+                                                  preload_path=self.expert_buffer / 'buffer',
+                                                  preload_steps=cfg.expert_steps)
         self.replay_storage.counter = self.agent
+
+        if self.expert_buffer != None:
+            self.expert_buffer = self.expert_buffer / 'buffer'
+
 
         if self.cfg.save_eval_episodes:
             self.eval_storage = ReplayBuffer(data_specs, meta_specs,
@@ -121,14 +138,10 @@ class Workspace:
                                                     cfg.replay_buffer_num_workers)
 
         self.preload_loader = None
-        if cfg.preload_buffer != "" and not cfg.preload_replay:
-            preload_cfg = cfg.replay.copy()
-            if cfg.expert_steps > 0:
-                preload_cfg['capacity'] = cfg.expert_steps
-            # create preloaded buffer
+        if self.preload_buffer and not cfg.preload_replay:
             self.preload_storage = ReplayBuffer(data_specs, meta_specs,
                                                   self.preload_buffer / 'buffer',
-                                                  length=cfg.batch_length, **preload_cfg,
+                                                  length=cfg.batch_length, 
                                                   device=cfg.device)
             self.preload_loader = make_replay_loader(self.preload_storage,
                                                     cfg.batch_size, # 
@@ -322,34 +335,27 @@ class Workspace:
             if not seed_until_step(self.global_step):
                 if should_train_step(self.global_step):
                     updates_num = 1
-                    self._global_iter += self._global_step
                     if started_train == False and self.cfg.pretrain_updates > 0:
+                        self._global_iter += self._global_step
                         print(f"Pretraining for {self.cfg.pretrain_updates} updates")
                         started_train = True
                         updates_num = self.cfg.pretrain_updates
                         if self.cfg.reinit_actor:
                             print("Reinitializing actor")
                             self.agent.reinit_actor()
-                        if self.cfg.expert_steps > 0:
-                            print("pretrainig expert")
-                            for _ in range(updates_num):
-                                metrics = self.agent.update(next(self.preload_iter), None, self.global_step)[1] # , self.global_step)
-                        else:
-                            for _ in range(updates_num):
-                                metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_step)[1] # , self.global_step)
+                        for _ in range(updates_num):
+                            metrics = self.agent.update(self.replay_iter, None, self.global_iter, only_wm=True)[1] # , self.global_step)
                     else:
                         # ZS runs can have empty replay_iter, which wouldnt update the WM, but expert tests can collect seed frames, which will update the WM
                         sampled_offline = True
                         while sampled_offline:
-                            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter),
+                            metrics = self.agent.update(self.replay_iter, self.preload_iter,
                                                         self.global_iter)[1] # , self.global_step)
                             sampled_offline = metrics.get('sampled_offline', False)
                             if sampled_offline:
                                 skips_count += 1
                             sampled_offline = sampled_offline and self.cfg.skip_offline_steps
                             self._global_iter += 1
-
-
 
                 if should_log_scalars(self.global_step):
                     self.logger.log_metrics(metrics, self.global_frame, ty='train')
@@ -375,10 +381,11 @@ class Workspace:
 
         print("started offline stage")
         for offline_update in range(self.cfg.offline_updates):
-            metrics = self.agent.update(next(self.replay_iter), next(self.preload_iter), self.global_iter)[1]
+            metrics = self.agent.update(self.replay_iter, self.preload_iter, self.global_iter)[1]
             # self._global_iter += self.cfg.offline_true_sample_rate
             self._global_step += 1
             self.logger.log_metrics(metrics, self.global_frame, ty='offline')
+            print(f"{metrics['model_grad_norm'] =}")
 
             if eval_every_update(offline_update):
                 self.eval(mpc=self.cfg.mpc_eval)

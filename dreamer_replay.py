@@ -1,3 +1,5 @@
+from typing import Optional
+from pathlib import Path
 import collections
 import datetime
 import io
@@ -14,7 +16,8 @@ class ReplayBuffer(IterableDataset):
 
   def __init__(
       self, data_specs, meta_specs, directory, length=20, capacity=0, ongoing=False, minlen=1, maxlen=0,
-      prioritize_ends=False, device='cuda', load_first=False):
+      prioritize_ends=False, device='cuda', load_first=False,
+      preload_path: Optional[Path]=None, preload_steps=0):
     self._directory = pathlib.Path(directory).expanduser()
     self._directory.mkdir(parents=True, exist_ok=True)
     self._capacity = capacity
@@ -24,6 +27,12 @@ class ReplayBuffer(IterableDataset):
     self._prioritize_ends = prioritize_ends
     self._random = np.random.RandomState()
     # filename -> key -> value_sequence
+    self.sym_samp = False
+    self.preload_steps = preload_steps
+    self.preload_path = preload_path
+    self.preloaded_eps  = {}
+    if preload_path:
+        self.preloaded_eps = preload_episodes(preload_path, preload_steps)
     self._complete_eps = load_episodes(self._directory, capacity, minlen, load_first=load_first)
     # worker -> key -> value_sequence
     self._ongoing_eps = collections.defaultdict(
@@ -41,6 +50,8 @@ class ReplayBuffer(IterableDataset):
     except:
       print("Incosistency between min/max/length in the replay buffer. Defaulting to (length): ", length)
       self._minlen = self._maxlen = self._length = length
+
+
 
   def __len__(self):
     return self._total_steps
@@ -112,13 +123,25 @@ class ReplayBuffer(IterableDataset):
       chunk = {k : torch.as_tensor(np.copy(v), device=self.device) for k, v in chunk.items()}
       yield chunk
 
-  def _sample_sequence(self):
+  def _sample_episode(self):
+    preloaded_eps = list(self.preloaded_eps.values())
     episodes = list(self._complete_eps.values())
     if self._ongoing:
       episodes += [
           x for x in self._ongoing_eps.values()
           if eplen(x) >= self._minlen]
-    episode = self._random.choice(episodes)
+    total_eps = len(episodes) + len(preloaded_eps)
+    preloaded_weight = 0.5 if self.sym_samp else len(preloaded_eps) / total_eps
+    online_weight = 0.5 if self.sym_samp else len(episodes) / total_eps
+    use_preloaded = np.random.choice([True, False], p=[preloaded_weight, online_weight])
+    if use_preloaded:
+        episode = self._random.choice(preloaded_eps)
+    else:
+        episode = self._random.choice(episodes)
+    return episode
+
+  def _sample_sequence(self):
+    episode = self._sample_episode()
     total = len(episode['action'])
     length = total
     if self._maxlen:
@@ -173,6 +196,31 @@ def save_episode(directory, episode):
       f2.write(f1.read())
   return filename
 
+
+def preload_episodes(directory, steps_count):
+  filenames = sorted(directory.glob('*.npz'))
+  num_steps = 0
+  episodes = {}
+  for filename in filenames:
+    if "-" in str(filename):
+      length = int(str(filename).split('-')[-1][:-4])
+    else:
+      length = int(str(filename).split('_')[-1][:-4])
+    num_steps += length
+    if num_steps > steps_count:
+      break
+    try:
+      with filename.open('rb') as f:
+        episode = np.load(f)
+        episode = {k: episode[k] for k in episode.keys()}
+    except Exception as e:
+      print(f'Could not load episode {str(filename)}: {e}')
+      continue
+    episodes[str(filename)] = episode
+    
+  return episodes
+
+  
 
 def load_episodes(directory, capacity=None, minlen=1, load_first=False):
   # The returned directory from filenames to episodes is guaranteed to be in

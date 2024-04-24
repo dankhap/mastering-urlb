@@ -63,28 +63,25 @@ class DreamerAgent(Module):
     metrics.update(mets)
     return state, outputs, metrics
 
-  def sample_pre_data(self, step):
-    offline_samples = self.preload_steps
+  def sample_pre_data(self, online_samples, offline_samples, step):
     if offline_samples == 0:
       return False
-    if self.online_storage_size == 0 or step == 0:
+    if online_samples == 0:
       return True
-    online_samples = self.online_storage_size
-  
     # Consider varying sized of offline and online datasets, with priority to online
         
-    if self.cfg.expert_steps > 0:
-        total = online_samples + offline_samples
-        if self.cfg.sym_samp:
-            online_weight = offline_weight = total // 2
-        offline_weight = offline_samples
-        online_weight = online_samples
-    else:
-        offline_samples = min(1000000 - online_samples, offline_samples)
-        total = online_samples + offline_samples
-        # total = max(1000000, online_samples + offline_samples)
-        online_weight = total - offline_samples
-        offline_weight = offline_samples
+    # if self.cfg.expert_steps > 0:
+    #     total = online_samples + offline_samples
+    #     if self.cfg.sym_samp:
+    #         online_weight = offline_weight = total // 2
+    #     offline_weight = offline_samples
+    #     online_weight = online_samples
+    # else:
+    offline_samples = min(1000000 - online_samples, offline_samples)
+    total = online_samples + offline_samples
+    # total = max(1000000, online_samples + offline_samples)
+    online_weight = total - offline_samples
+    offline_weight = offline_samples
 
     dists = [offline_weight / total, online_weight / total]
     use_offline = np.random.choice([True, False], p=dists)
@@ -92,28 +89,33 @@ class DreamerAgent(Module):
 
 
   def need_train_policy(self, step):
-      return step > self.cfg.wm_pretrain_steps // self.cfg.action_repeat
+      return step >= self.cfg.wm_pretrain_steps // self.cfg.action_repeat
 
-  def update(self, data, pre_data, step):
+  def update(self, online_replay, offline_replay, step, only_wm=False):
+    if offline_replay is None:
+        sample_offline = False
+    else:
+        online_steps = step + self.cfg.expert_steps
+        # offline_steps = offline_replay._dataset._storage._num_transitions
+        offline_steps = self.preload_steps
+
+        sample_offline = self.sample_pre_data(online_steps, offline_steps, step)
+
+    buffer_replay = offline_replay if sample_offline else online_replay
+
     outputs = {}
     metrics = {}
     state = None
+    batch = next(buffer_replay)
 
-    wm_use_pre_data = True if pre_data and self.cfg.expert_steps > 0 and self.sample_pre_data(step) else False
-    p_use_pre_data = True if pre_data and self.sample_pre_data(step) else False
-
-    wm_data = pre_data if wm_use_pre_data else data
-    p_data = pre_data if p_use_pre_data else data
-
-    if wm_data:
-        state, outputs, metrics =self.update_wm(wm_data, step)
-
-    if not self.need_train_policy(step):
-        return state, metrics
-
-    if p_data and p_use_pre_data != wm_use_pre_data:
+    if not sample_offline:
+        state, outputs, metrics =self.update_wm(batch, step)
+    else:
         with torch.no_grad():
-            _, state, outputs, _ = self.wm.loss(p_data, state)
+            _, state, outputs, _ = self.wm.loss(batch, state)
+
+    if not self.need_train_policy(step) or only_wm:
+        return state, metrics
 
     start = outputs['post']
     # Don't train the policy/value if just using MPC
@@ -122,8 +124,8 @@ class DreamerAgent(Module):
     start = {k: stop_gradient(v) for k,v in start.items()}
     reward_fn = lambda seq: self.wm.heads['reward'](seq['feat']).mean #.mode()
     metrics.update(self._task_behavior.update(
-        self.wm, start, p_data['is_terminal'], reward_fn))
-    metrics['sampled_offline'] = wm_use_pre_data and p_use_pre_data
+        self.wm, start, batch['is_terminal'], reward_fn))
+    metrics['sampled_offline'] = sample_offline
     return state, metrics
 
   def report(self, data):
