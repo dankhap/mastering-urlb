@@ -396,13 +396,14 @@ class Workspace:
 
 
     def load_snapshot(self):
+        sseed = self.cfg.snap_seed
         snapshot_base_dir = Path(self.cfg.snapshot_base_dir) 
         domain, _ = self.cfg.task.split('_', 1)
         snapshot_dir = snapshot_base_dir / self.cfg.obs_type / domain / self.cfg.agent.name
         if self.cfg.custom_snap_dir != 'none':
             snapshot_dir = Path(self.cfg.custom_snap_dir) 
         snapshot = snapshot_dir / str(
-            self.cfg.seed) / f'snapshot_{self.cfg.snapshot_ts}.pt'
+            sseed) / f'snapshot_{self.cfg.snapshot_ts}.pt'
             
         def try_load(seed):
             if not snapshot.exists():
@@ -412,7 +413,7 @@ class Workspace:
             return payload
 
         # try to load current seed
-        payload = try_load(self.cfg.seed)
+        payload = try_load(sseed)
         if payload is not None:
             print(f"Snapshot loaded from: {snapshot}")
             return payload
